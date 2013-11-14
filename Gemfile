@@ -61,3 +61,9 @@ group :test do
 	# Manipulate Time.now in specs
 	gem 'timecop'
 end
+
+# Allow for local gems; often useful for local development gems like
+# irbtools, or Metasploit modules that use private gems. See:
+# http://stackoverflow.com/questions/5764735/bypassing-bundler-for-auxiliary-development-gems/5765003#5765003
+eval(File.read(File.dirname(__FILE__) + '/Gemfile.local'), binding) rescue nil
+

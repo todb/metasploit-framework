@@ -1,4 +1,6 @@
 .bundle
+# Local gems that shouldn't ship
+Gemfile.local
 # Rubymine project directory
 .idea
 # Sublime Text project directory (not created by ST by default)
